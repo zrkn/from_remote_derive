@@ -1,7 +1,5 @@
 extern crate proc_macro;
 
-use proc_macro::TokenStream;
-
 use syn::{
     parse_macro_input, DeriveInput, Attribute, Type, Meta, Lit, Data, Fields, Ident,
     spanned::Spanned,
@@ -11,7 +9,7 @@ use proc_macro2::Span;
 
 
 #[proc_macro_derive(FromRemote, attributes(from_remote))]
-pub fn derive_struct_from(input: TokenStream) -> TokenStream {
+pub fn derive_struct_from(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
 
     let name = input.ident;
@@ -112,7 +110,7 @@ pub fn derive_struct_from(input: TokenStream) -> TokenStream {
         }
     };
 
-    TokenStream::from(expanded)
+    proc_macro::TokenStream::from(expanded)
 }
 
 fn get_remote_name_from_attrs(attrs: &[Attribute]) -> Type {
