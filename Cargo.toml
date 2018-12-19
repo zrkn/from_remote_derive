@@ -1,0 +1,16 @@
+[package]
+name = "from_remote_derive"
+version = "0.1.0"
+authors = ["zrkn <zrkn@email.su>"]
+edition = "2018"
+description = "Procedural macro for deriving `From` for types with same internal structure"
+repository = "https://github.com/zrkn/from_remote_derive/"
+license = "MIT"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+quote       = "0.6"
+syn         = "0.15"
+proc-macro2 = "0.4"
