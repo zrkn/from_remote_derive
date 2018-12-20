@@ -4,12 +4,12 @@ use from_remote_derive::FromRemote;
 #[from_remote = "Bar"]
 struct Foo {
     bar: u64,
-    fizz: String,
+    fizz: Vec<String>,
 }
 
 struct Bar {
     bar: u64,
-    fizz: String,
+    fizz: Vec<String>,
 }
 
 #[derive(FromRemote)]

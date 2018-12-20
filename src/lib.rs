@@ -1,11 +1,12 @@
 extern crate proc_macro;
 
 use syn::{
-    parse_macro_input, DeriveInput, Attribute, Type, Meta, Lit, Data, Fields, Ident,
+    parse_macro_input, parse_quote,
+    DeriveInput, Attribute, Type, Meta, Lit, Data, Fields, Ident, Field,
     spanned::Spanned,
 };
 use quote::{quote, quote_spanned};
-use proc_macro2::Span;
+use proc_macro2::TokenStream;
 
 
 #[proc_macro_derive(FromRemote, attributes(from_remote))]
@@ -19,27 +20,26 @@ pub fn derive_struct_from(input: proc_macro::TokenStream) -> proc_macro::TokenSt
         Data::Struct(data) => {
             match data.fields {
                 Fields::Named(fields) => {
-                    let fields_mapping = fields.named.iter().map(|f| {
-                        let f_name = &f.ident;
-                        quote_spanned! { f.span() =>
-                            #f_name: other.#f_name.into()
-                        }
-                    });
+                    let fields_match = named_match(fields.named.iter());
+                    let fields_mapping = named_mapping(fields.named.iter());
                     quote! {
+                        let #remote_name {
+                            #fields_match
+                        } = other;
                         #name {
-                            #(#fields_mapping),*
+                            #fields_mapping
                         }
                     }
                 },
                 Fields::Unnamed(fields) => {
-                    let fields_mapping = fields.unnamed.iter().enumerate().map(|(i, f)| {
-                        quote_spanned! { f.span() =>
-                            other.#i.into()
-                        }
-                    });
+                    let fields_match = unnamed_match(fields.unnamed.iter());
+                    let fields_mapping = unnamed_mapping(fields.unnamed.iter());
                     quote! {
+                        let #remote_name (
+                            #fields_match
+                        ) = other;
                         #name (
-                            #(#fields_mapping),*
+                            #fields_mapping
                         )
                     }
                 },
@@ -51,39 +51,21 @@ pub fn derive_struct_from(input: proc_macro::TokenStream) -> proc_macro::TokenSt
                 let v_name = &v.ident;
                 match v.fields {
                     Fields::Named(ref fields) => {
-                        let fields_match = fields.named.iter().map(|f| {
-                            let f_name = &f.ident;
-                            quote_spanned! { f.span() =>
-                                #f_name
-                            }
-                        });
-                        let fields_mapping = fields.named.iter().map(|f| {
-                            let f_name = &f.ident;
-                            quote_spanned! { f.span() =>
-                                #f_name: #f_name.into()
-                            }
-                        });
+                        let fields_match = named_match(fields.named.iter());
+                        let fields_mapping = named_mapping(fields.named.iter());
                         quote_spanned! { v.span() =>
-                            #remote_name::#v_name { #(#fields_match),* } => #name::#v_name {
-                                #(#fields_mapping),*
+                            #remote_name::#v_name { #fields_match } => #name::#v_name {
+                                #fields_mapping
                             }
                         }
                     },
                     Fields::Unnamed(ref fields) => {
-                        let fields_match = fields.unnamed.iter().enumerate().map(|(i, f)| {
-                            let i = Ident::new(&format!("__{}", i), Span::call_site());
-                            quote_spanned! { f.span() =>
-                                #i
-                            }
-                        });
-                        let fields_mapping = fields.unnamed.iter().enumerate().map(|(i, f)| {
-                            let i = Ident::new(&format!("__{}", i), Span::call_site());
-                            quote_spanned! { f.span() =>
-                                #i.into()
-                            }
-                        });
+                        let fields_match = unnamed_match(fields.unnamed.iter());
+                        let fields_mapping = unnamed_mapping(fields.unnamed.iter());
                         quote_spanned! { v.span() =>
-                            #remote_name::#v_name(#(#fields_match),*) => #name::#v_name(#(#fields_mapping),*)
+                            #remote_name::#v_name(#fields_match) => #name::#v_name(
+                                #fields_mapping
+                            )
                         }
                     },
                     Fields::Unit => {
@@ -111,6 +93,83 @@ pub fn derive_struct_from(input: proc_macro::TokenStream) -> proc_macro::TokenSt
     };
 
     proc_macro::TokenStream::from(expanded)
+}
+
+fn named_match<'a>(fields: impl Iterator<Item = &'a Field>) -> TokenStream {
+    let fields_match = fields.map(|f| {
+        let f_name = &f.ident;
+        quote_spanned! { f.span() =>
+            #f_name
+        }
+    });
+    quote! {
+        #(#fields_match),*
+    }
+}
+
+fn unnamed_match<'a>(fields: impl Iterator<Item = &'a Field>) -> TokenStream {
+    let fields_match = fields.enumerate().map(|(i, f)| {
+        let i = Ident::new(&format!("__{}", i), f.span());
+        quote_spanned! { f.span() =>
+            #i
+        }
+    });
+    quote! {
+        #(#fields_match),*
+    }
+}
+
+fn named_mapping<'a>(fields: impl Iterator<Item = &'a Field>) -> TokenStream {
+    let fields_mapping = fields.map(|f| {
+        let f_name = &f.ident;
+        if is_collection(f) {
+            quote_spanned! { f.span() =>
+                #f_name: #f_name.into_iter().map(Into::into).collect()
+            }
+        } else {
+            quote_spanned! { f.span() =>
+                #f_name: #f_name.into()
+            }
+        }
+    });
+    quote! {
+        #(#fields_mapping),*
+    }
+}
+
+fn unnamed_mapping<'a>(fields: impl Iterator<Item = &'a Field>) -> TokenStream {
+    let fields_mapping = fields.enumerate().map(|(i, f)| {
+        let i = Ident::new(&format!("__{}", i), f.span());
+        if is_collection(f) {
+            quote_spanned! { f.span() =>
+                #i.into_iter().map(Into::into).collect(),
+            }
+        } else {
+            quote_spanned! { f.span() =>
+                #i.into()
+            }
+        }
+    });
+    quote! {
+        #(#fields_mapping),*
+    }
+}
+
+fn is_collection(field: &Field) -> bool {
+    let path = match &field.ty {
+        Type::Path(p) => p,
+        _ => return false,
+    };
+    let ident = match &path.path.segments.first() {
+        Some(v) => &v.value().ident,
+        None => return false,
+    };
+    let collection_idents: [Ident; 3] = [
+        parse_quote!(Vec),
+        parse_quote!(VecDeque),
+        parse_quote!(LinkedList),
+    ];
+    collection_idents.contains(ident)
 }
 
 fn get_remote_name_from_attrs(attrs: &[Attribute]) -> Type {
