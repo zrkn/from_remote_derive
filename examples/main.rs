@@ -15,7 +15,7 @@ struct Bar {
 #[derive(FromRemote)]
 #[from_remote = "Buzz"]
 enum Fizz {
-    A(u64, u64),
+    A(u64, Option<u64>),
     B(String),
     C(Foo),
     D {
@@ -25,7 +25,7 @@ enum Fizz {
 }
 
 enum Buzz {
-    A(u64, u64),
+    A(u64, Option<u64>),
     B(String),
     C(Bar),
     D {

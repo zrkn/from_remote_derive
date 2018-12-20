@@ -126,6 +126,10 @@ fn named_mapping<'a>(fields: impl Iterator<Item = &'a Field>) -> TokenStream {
             quote_spanned! { f.span() =>
                 #f_name: #f_name.into_iter().map(Into::into).collect()
             }
+        } else if is_monadic(f) {
+            quote_spanned! { f.span() =>
+                #f_name: #f_name.map(Into::into)
+            }
         } else {
             quote_spanned! { f.span() =>
                 #f_name: #f_name.into()
@@ -143,6 +147,10 @@ fn unnamed_mapping<'a>(fields: impl Iterator<Item = &'a Field>) -> TokenStream {
         if is_collection(f) {
             quote_spanned! { f.span() =>
                 #i.into_iter().map(Into::into).collect(),
+            }
+        } else if is_monadic(f) {
+            quote_spanned! { f.span() =>
+                #i.map(Into::into)
             }
         } else {
             quote_spanned! { f.span() =>
@@ -164,12 +172,30 @@ fn is_collection(field: &Field) -> bool {
         Some(v) => &v.value().ident,
         None => return false,
     };
-    let collection_idents: [Ident; 3] = [
+    let collection_idents: [Ident; 5] = [
         parse_quote!(Vec),
         parse_quote!(VecDeque),
         parse_quote!(LinkedList),
+        parse_quote!(HashSet),
+        parse_quote!(BTreeSet),
     ];
     collection_idents.contains(ident)
+}
+
+fn is_monadic(field: &Field) -> bool {
+    let path = match &field.ty {
+        Type::Path(p) => p,
+        _ => return false,
+    };
+    let ident = match &path.path.segments.first() {
+        Some(v) => &v.value().ident,
+        None => return false,
+    };
+    let monadic_idents: [Ident; 2] = [
+        parse_quote!(Option),
+        parse_quote!(Result),
+    ];
+    monadic_idents.contains(ident)
 }
 
 fn get_remote_name_from_attrs(attrs: &[Attribute]) -> Type {
