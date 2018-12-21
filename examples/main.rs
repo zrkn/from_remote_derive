@@ -1,14 +1,16 @@
+use std::collections::{HashMap, BTreeMap};
+
 use from_remote_derive::FromRemote;
 
 #[derive(FromRemote)]
 #[from_remote = "Bar"]
 struct Foo {
-    bar: u64,
+    bar: BTreeMap<u64, u64>,
     fizz: Vec<String>,
 }
 
 struct Bar {
-    bar: u64,
+    bar: BTreeMap<u64, u64>,
     fizz: Vec<String>,
 }
 
@@ -16,7 +18,7 @@ struct Bar {
 #[from_remote = "Buzz"]
 enum Fizz {
     A(u64, Option<u64>),
-    B(String),
+    B(HashMap<String, Foo>),
     C(Foo),
     D {
         x: u16,
@@ -26,7 +28,7 @@ enum Fizz {
 
 enum Buzz {
     A(u64, Option<u64>),
-    B(String),
+    B(HashMap<String, Bar>),
     C(Bar),
     D {
         x: u16,

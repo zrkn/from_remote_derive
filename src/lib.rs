@@ -122,9 +122,13 @@ fn unnamed_match<'a>(fields: impl Iterator<Item = &'a Field>) -> TokenStream {
 fn named_mapping<'a>(fields: impl Iterator<Item = &'a Field>) -> TokenStream {
     let fields_mapping = fields.map(|f| {
         let f_name = &f.ident;
-        if is_collection(f) {
+        if is_collection_seq(f) {
             quote_spanned! { f.span() =>
                 #f_name: #f_name.into_iter().map(Into::into).collect()
+            }
+        } else if is_collection_map(f) {
+            quote_spanned! { f.span() =>
+                #f_name: #f_name.into_iter().map(|(x, y)| (x.into(), y.into())).collect()
             }
         } else if is_monadic(f) {
             quote_spanned! { f.span() =>
@@ -144,9 +148,13 @@ fn named_mapping<'a>(fields: impl Iterator<Item = &'a Field>) -> TokenStream {
 fn unnamed_mapping<'a>(fields: impl Iterator<Item = &'a Field>) -> TokenStream {
     let fields_mapping = fields.enumerate().map(|(i, f)| {
         let i = Ident::new(&format!("__{}", i), f.span());
-        if is_collection(f) {
+        if is_collection_seq(f) {
             quote_spanned! { f.span() =>
                 #i.into_iter().map(Into::into).collect(),
+            }
+        } else if is_collection_map(f) {
+            quote_spanned! { f.span() =>
+                #i.into_iter().map(|(x, y)| (x.into(), y.into())).collect(),
             }
         } else if is_monadic(f) {
             quote_spanned! { f.span() =>
@@ -163,7 +171,7 @@ fn unnamed_mapping<'a>(fields: impl Iterator<Item = &'a Field>) -> TokenStream {
     }
 }
 
-fn is_collection(field: &Field) -> bool {
+fn is_collection_seq(field: &Field) -> bool {
     let path = match &field.ty {
         Type::Path(p) => p,
         _ => return false,
@@ -178,6 +186,22 @@ fn is_collection(field: &Field) -> bool {
         parse_quote!(LinkedList),
         parse_quote!(HashSet),
         parse_quote!(BTreeSet),
+    ];
+    collection_idents.contains(ident)
+}
+
+fn is_collection_map(field: &Field) -> bool {
+    let path = match &field.ty {
+        Type::Path(p) => p,
+        _ => return false,
+    };
+    let ident = match &path.path.segments.first() {
+        Some(v) => &v.value().ident,
+        None => return false,
+    };
+    let collection_idents: [Ident; 2] = [
+        parse_quote!(HashMap),
+        parse_quote!(BTreeMap),
     ];
     collection_idents.contains(ident)
 }

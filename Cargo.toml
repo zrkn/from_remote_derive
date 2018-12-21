@@ -1,6 +1,6 @@
 [package]
 name = "from_remote_derive"
-version = "0.1.3"
+version = "0.1.4"
 authors = ["zrkn <zrkn@email.su>"]
 edition = "2018"
 description = "Procedural macro for deriving `From` for types with same internal structure"
