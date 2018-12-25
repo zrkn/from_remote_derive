@@ -96,6 +96,7 @@ fn from_impl(input: &DeriveInput, remote_name: Type) -> TokenStream {
     };
 
     quote! {
+        #[allow(clippy::identity_conversion)]
         impl From<#remote_name> for #name {
             fn from(other: #remote_name) -> Self {
                 #constructor_impl
