@@ -259,5 +259,5 @@ fn get_remote_name_from_attrs(attrs: &[Attribute]) -> Vec<Type> {
             })
             .collect();
     }
-    panic!("#[derive(FromRemote)] must be used with #[from_remote = \"???\"]")
+    panic!("#[derive(FromRemote)] must be used with #[from_remote(\"???\")]")
 }
